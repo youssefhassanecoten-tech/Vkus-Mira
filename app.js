@@ -1,0 +1,505 @@
+(() => {
+  "use strict";
+
+  const RECIPES = window.RECIPES || [];
+  const STORAGE_KEY = "egypt-recipes-v1";
+  const CHECK_SVG =
+    '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4.2 10.5l3.4 3.4L15.9 5.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  const main = document.getElementById("main");
+  const toast = document.getElementById("toast");
+
+  let memoryStore = {};
+  let appState = readState();
+
+  function readState() {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (error) {
+      return memoryStore;
+    }
+  }
+
+  function writeState() {
+    memoryStore = appState;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    } catch (error) {
+      /* localStorage may be unavailable in some file:// contexts. */
+    }
+  }
+
+  function esc(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (char) => {
+      const map = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      };
+      return map[char];
+    });
+  }
+
+  function selectedFor(recipeId, section) {
+    if (!appState[recipeId]) appState[recipeId] = {};
+    if (!Array.isArray(appState[recipeId][section])) appState[recipeId][section] = [];
+    return appState[recipeId][section];
+  }
+
+  function isDone(recipeId, section, index) {
+    return selectedFor(recipeId, section).includes(index);
+  }
+
+  function toggleMark(recipeId, section, index) {
+    const selected = selectedFor(recipeId, section);
+    const position = selected.indexOf(index);
+    if (position >= 0) selected.splice(position, 1);
+    else selected.push(index);
+    writeState();
+  }
+
+  function getRecipe(id) {
+    return RECIPES.find((recipe) => recipe.id === id);
+  }
+
+  function showToast(message) {
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add("is-visible");
+    window.clearTimeout(showToast.timer);
+    showToast.timer = window.setTimeout(() => {
+      toast.classList.remove("is-visible");
+    }, 2600);
+  }
+
+  function renderHome() {
+    document.title = "Вкус Египта — рецепты для Санкт-Петербурга";
+
+    const cards = RECIPES.map(
+      (recipe) => `
+        <a class="dish-card" href="#/recipe/${esc(recipe.id)}" style="--card-accent:${recipe.accent}">
+          <div class="dish-media">
+            <img src="${esc(recipe.photo)}" alt="${esc(recipe.title)}" loading="lazy">
+            <span class="dish-index">${esc(recipe.num)}</span>
+          </div>
+          <div class="dish-body">
+            <span class="dish-kicker">${esc(recipe.meta.cook)} • ${esc(recipe.meta.difficulty)}</span>
+            <h3>${esc(recipe.title)}</h3>
+            <p>${esc(recipe.tagline)}</p>
+            <div class="dish-footer">
+              <span>${esc(recipe.meta.portions)}</span>
+              <span>PDF-гид</span>
+            </div>
+          </div>
+        </a>`
+    ).join("");
+
+    main.innerHTML = `
+      <section class="hero">
+        <div>
+          <span class="eyebrow">Египетская кухня • Санкт-Петербург</span>
+          <h1>Вкус <em>Египта</em><br>без лишней суеты.</h1>
+          <p class="hero-lede">
+            Десять блюд, которые реально приготовить дома: от кошари и хаваши до махши и кофты.
+            Выбирайте блюдо, отмечайте покупки и шаги — приложение запомнит, что уже сделано.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#dishes">Выбрать блюдо</a>
+            <span class="hero-note">Все рецепты — с покупками<br>в Петербурге и PDF-гидами.</span>
+          </div>
+        </div>
+        <aside class="hero-card" aria-label="Коротко о подборке">
+          <div>
+            <span class="hc-kicker">Сегодня на кухне</span>
+            <div class="hc-title">Египет<br>дома</div>
+            <p class="hc-text">Сытная уличная еда, домашние запеканки и супы, которые пахнут специями.</p>
+          </div>
+          <div class="hc-stats">
+            <div><strong>${RECIPES.length}</strong><span>блюд</span></div>
+            <div><strong>3</strong><span>вкладки</span></div>
+            <div><strong>0</strong><span>сложностей</span></div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="section" id="countries" aria-labelledby="countries-title">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Шаг 1</span>
+            <h2 id="countries-title">Выберите кухню</h2>
+          </div>
+          <p>Пока доступен Египет. Остальные кухни — на подходе, но начинать лучше с проверенной классики.</p>
+        </div>
+        <div class="country-grid">
+          <button class="country-card is-active" type="button" data-country="eg" aria-pressed="true">
+            <span class="country-flag" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="country-name">Египет</span>
+            <span class="country-meta">${RECIPES.length} блюд • доступно</span>
+            <span class="country-mark">Выбрано</span>
+          </button>
+          <button class="country-card is-disabled" type="button" disabled>
+            <span class="country-name">Ливан</span>
+            <span class="country-meta">скоро</span>
+          </button>
+          <button class="country-card is-disabled" type="button" disabled>
+            <span class="country-name">Турция</span>
+            <span class="country-meta">скоро</span>
+          </button>
+          <button class="country-card is-disabled" type="button" disabled>
+            <span class="country-name">Марокко</span>
+            <span class="country-meta">скоро</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="section" id="dishes" aria-labelledby="dishes-title">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Шаг 2</span>
+            <h2 id="dishes-title">Выберите блюдо</h2>
+          </div>
+          <p>Нажмите на карточку — откроется описание, ингредиенты, подготовка и готовка.</p>
+        </div>
+        <div class="dish-grid">${cards}</div>
+      </section>
+    `;
+  }
+
+  function sectionData(recipe) {
+    return [
+      {
+        key: "ingredients",
+        kicker: "Что купить",
+        title: "Ингредиенты",
+        subtitle: "Нажмите на продукт, когда он куплен или уже есть дома.",
+        items: recipe.ingredients.map((item, index) => ({
+          index,
+          title: item.name,
+          amount: item.amount,
+          note: item.note,
+          doneLabel: "Куплено",
+        })),
+      },
+      {
+        key: "prep",
+        kicker: "Что сделать заранее",
+        title: "Подготовка",
+        subtitle: "Помыть, нарезать, отмерить и разложить. Это экономит нервы у плиты.",
+        items: recipe.prep.map((item, index) => ({
+          index,
+          title: item.title,
+          note: item.text,
+          doneLabel: "Готово",
+        })),
+      },
+      {
+        key: "steps",
+        kicker: "30–100%",
+        title: "Готовим",
+        subtitle: "0–20% — покупки и подготовка. Дальше — огонь, духовка и сборка.",
+        items: recipe.stages.slice(3).map((stage, index) => ({
+          index,
+          percent: stage.percent,
+          title: stage.title,
+          note: stage.text,
+          doneLabel: "Сделано",
+        })),
+      },
+    ];
+  }
+
+  function itemMarkup(recipe, section, item) {
+    const done = isDone(recipe.id, section.key, item.index);
+    const status = done ? item.doneLabel : "Отметить";
+    const percent = item.percent ? `<span class="item-percent">${esc(item.percent)}</span>` : "";
+    const amount = item.amount ? `<span class="item-amount">${esc(item.amount)}</span>` : "";
+    const note = item.note ? `<span class="item-note">${esc(item.note)}</span>` : "";
+
+    return `
+      <button
+        class="item${done ? " is-done" : ""}"
+        type="button"
+        data-toggle-item
+        data-section="${esc(section.key)}"
+        data-index="${item.index}"
+        data-done-label="${esc(item.doneLabel)}"
+        aria-pressed="${done}"
+      >
+        <span class="item-check" aria-hidden="true">${CHECK_SVG}</span>
+        <span class="item-content">
+          <span class="item-title">${percent}${esc(item.title)}${amount}</span>
+          ${note}
+        </span>
+        <span class="item-status">${esc(status)}</span>
+      </button>
+    `;
+  }
+
+  function accordionMarkup(recipe, section, position) {
+    const open = position === 0;
+    const doneCount = section.items.filter((item) => isDone(recipe.id, section.key, item.index)).length;
+    const total = section.items.length;
+    const items = section.items.map((item) => itemMarkup(recipe, section, item)).join("");
+
+    return `
+      <section class="accordion${open ? " is-open" : ""}" data-section="${esc(section.key)}">
+        <button
+          class="accordion-trigger"
+          type="button"
+          data-accordion-trigger
+          aria-expanded="${open}"
+          aria-controls="panel-${esc(section.key)}"
+        >
+          <span class="acc-index">${String(position + 1).padStart(2, "0")}</span>
+          <span class="acc-main">
+            <span class="acc-kicker">${esc(section.kicker)}</span>
+            <span class="acc-title">${esc(section.title)}</span>
+          </span>
+          <span class="acc-count">${doneCount}/${total}</span>
+          <span class="acc-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="accordion-panel" id="panel-${esc(section.key)}" aria-hidden="${!open}">
+          <div class="item-list">${items}</div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderDetail(id) {
+    const recipe = getRecipe(id);
+    if (!recipe) {
+      window.location.hash = "#/";
+      return;
+    }
+
+    document.title = `${recipe.title} — Вкус Египта`;
+    const sections = sectionData(recipe);
+    const cookingSteps = recipe.stages.slice(3);
+    const source = recipe.photoSource
+      ? `<a href="${esc(recipe.photoSource)}" target="_blank" rel="noopener">Источник фото</a>`
+      : "";
+
+    main.innerHTML = `
+      <div class="detail-page" style="--accent:${recipe.accent};--accent-dark:${recipe.accent_dark};--accent-light:${recipe.accent_light}">
+        <a class="back-link" href="#/">Все блюда</a>
+
+        <section class="detail-hero" aria-labelledby="dish-title">
+          <img src="${esc(recipe.photo)}" alt="${esc(recipe.title)}">
+          <div class="detail-hero-content">
+            <div class="detail-kicker">
+              <span class="dot" aria-hidden="true"></span>
+              Блюдо ${esc(recipe.num)} • Египет
+            </div>
+            <h1 class="detail-title" id="dish-title">${esc(recipe.title)}</h1>
+            <p class="detail-subtitle">${esc(recipe.subtitle)}</p>
+            <div class="detail-chips">
+              <span class="chip">${esc(recipe.meta.portions)}</span>
+              <span class="chip">Подготовка: ${esc(recipe.meta.prep)}</span>
+              <span class="chip">Готовка: ${esc(recipe.meta.cook)}</span>
+              <span class="chip">${esc(recipe.meta.difficulty)}</span>
+            </div>
+            <div class="detail-actions">
+              <a class="btn btn-light" href="${esc(recipe.pdfPath)}" download>Скачать PDF</a>
+              <a class="btn btn-ghost" href="#ingredients-panel">К ингредиентам</a>
+            </div>
+            <div class="scroll-hint" aria-hidden="true">
+              <span>Описание → 3 вкладки</span>
+              <i></i>
+            </div>
+          </div>
+        </section>
+
+        <div class="detail-body">
+          <div class="detail-main">
+            <section class="description-card">
+              <span class="eyebrow">Что это</span>
+              <h2>Коротко о блюде</h2>
+              <p>${esc(recipe.description)}</p>
+              <div class="why-grid">
+                ${recipe.why.map((item) => `<div class="why-item">${esc(item)}</div>`).join("")}
+              </div>
+            </section>
+
+            <div class="steps-heading">
+              <div>
+                <span class="eyebrow">Три вкладки</span>
+                <h2>Соберите ужин по шагам</h2>
+              </div>
+              <p>Нажимайте на пункты — они закрашиваются зелёным. Повторное нажатие снимает отметку.</p>
+            </div>
+
+            <div class="accordions" id="ingredients-panel">
+              ${sections.map((section, index) => accordionMarkup(recipe, section, index)).join("")}
+            </div>
+          </div>
+
+          <aside class="detail-side" aria-label="Прогресс и PDF">
+            <div class="side-card">
+              <div class="side-kicker">Твой прогресс</div>
+              <div class="progress-top">
+                <strong class="progress-percent">0%</strong>
+                <span class="progress-copy">0 отмечено</span>
+              </div>
+              <div class="progress-track" role="progressbar" aria-label="Готовность блюда" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="progress-fill"></div>
+              </div>
+              <p class="side-note">Отмечайте покупки, подготовку и шаги. Отметки сохраняются в этом браузере.</p>
+              <button class="reset-btn" type="button" data-reset-recipe>Сбросить отметки</button>
+            </div>
+
+            <div class="side-card pdf-card">
+              <div class="side-kicker">PDF-гид</div>
+              <h3>Полный гид 0–100</h3>
+              <p>Покупки в Петербурге, подготовка, 11 шагов, подача и разбор ошибок.</p>
+              <a class="btn btn-primary btn-block" href="${esc(recipe.pdfPath)}" download>Скачать PDF</a>
+            </div>
+
+            <p class="photo-credit">${esc(recipe.photo_credit)} ${source}</p>
+          </aside>
+        </div>
+      </div>
+    `;
+
+    refreshProgress(recipe, true);
+
+    const stepsSection = document.querySelector('.accordion[data-section="steps"]');
+    if (stepsSection) {
+      stepsSection.querySelector(".acc-kicker").textContent = "30–100%";
+    }
+    // Keep cooking steps count based on the visible stages.
+    const cookingCount = document.querySelector('.accordion[data-section="steps"] .acc-count');
+    if (cookingCount) cookingCount.textContent = `0/${cookingSteps.length}`;
+    refreshProgress(recipe, true);
+  }
+
+  function refreshProgress(recipe, silent = false) {
+    const items = Array.from(document.querySelectorAll("[data-toggle-item]"));
+    const done = items.filter((item) => item.classList.contains("is-done")).length;
+    const total = items.length;
+    const percent = total ? Math.round((done / total) * 100) : 0;
+
+    document.querySelectorAll(".accordion").forEach((accordion) => {
+      const visible = Array.from(accordion.querySelectorAll("[data-toggle-item]"));
+      const selected = visible.filter((item) => item.classList.contains("is-done")).length;
+      const count = accordion.querySelector(".acc-count");
+      if (count) count.textContent = `${selected}/${visible.length}`;
+    });
+
+    const percentNode = document.querySelector(".progress-percent");
+    const copyNode = document.querySelector(".progress-copy");
+    const fillNode = document.querySelector(".progress-fill");
+    const trackNode = document.querySelector(".progress-track");
+    if (percentNode) percentNode.textContent = `${percent}%`;
+    if (copyNode) copyNode.textContent = `${done} из ${total} отмечено`;
+    if (fillNode) fillNode.style.width = `${percent}%`;
+    if (trackNode) trackNode.setAttribute("aria-valuenow", String(percent));
+
+    const page = document.querySelector(".detail-page");
+    if (page) {
+      if (total > 0 && done === total) {
+        if (!silent && page.dataset.completed !== "1") {
+          showToast("Всё отмечено. Можно готовить.");
+        }
+        page.dataset.completed = "1";
+      } else {
+        delete page.dataset.completed;
+      }
+    }
+  }
+
+  function setAccordion(accordion, open) {
+    accordion.classList.toggle("is-open", open);
+    const trigger = accordion.querySelector("[data-accordion-trigger]");
+    const panel = accordion.querySelector(".accordion-panel");
+    if (trigger) trigger.setAttribute("aria-expanded", String(open));
+    if (panel) panel.setAttribute("aria-hidden", String(!open));
+  }
+
+  function route() {
+    const hash = window.location.hash || "#/";
+    const match = hash.match(/^#\/recipe\/([^/?#]+)/);
+    if (match) {
+      renderDetail(decodeURIComponent(match[1]));
+    } else {
+      renderHome();
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }
+
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-accordion-trigger]");
+    if (trigger) {
+      event.preventDefault();
+      const accordion = trigger.closest(".accordion");
+      if (!accordion) return;
+      const open = !accordion.classList.contains("is-open");
+      setAccordion(accordion, open);
+      return;
+    }
+
+    const item = event.target.closest("[data-toggle-item]");
+    if (item) {
+      event.preventDefault();
+      const recipeId = getRecipeIdFromHash();
+      const recipe = getRecipe(recipeId);
+      if (!recipe) return;
+
+      const section = item.dataset.section;
+      const index = Number(item.dataset.index);
+      const done = !item.classList.contains("is-done");
+      toggleMark(recipe.id, section, index);
+      item.classList.toggle("is-done", done);
+      item.setAttribute("aria-pressed", String(done));
+      const status = item.querySelector(".item-status");
+      if (status) status.textContent = done ? item.dataset.doneLabel : "Отметить";
+      refreshProgress(recipe);
+      return;
+    }
+
+    const reset = event.target.closest("[data-reset-recipe]");
+    if (reset) {
+      event.preventDefault();
+      const recipeId = getRecipeIdFromHash();
+      const recipe = getRecipe(recipeId);
+      if (!recipe) return;
+      if (window.confirm(`Сбросить все отметки для блюда «${recipe.title}»?`)) {
+        delete appState[recipe.id];
+        writeState();
+        renderDetail(recipe.id);
+        showToast("Отметки сброшены.");
+      }
+      return;
+    }
+
+    const country = event.target.closest("[data-country]");
+    if (country && country.dataset.country === "eg") {
+      const dishes = document.getElementById("dishes");
+      if (dishes) dishes.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    const accordionLink = event.target.closest('a[href="#ingredients-panel"]');
+    if (accordionLink) {
+      event.preventDefault();
+      const accordions = document.querySelector(".accordions");
+      if (accordions) accordions.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  });
+
+  function getRecipeIdFromHash() {
+    const match = (window.location.hash || "").match(/^#\/recipe\/([^/?#]+)/);
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  window.addEventListener("hashchange", route);
+  window.addEventListener("DOMContentLoaded", route);
+
+  if (document.readyState === "loading") {
+    // DOMContentLoaded will call route.
+  } else {
+    route();
+  }
+})();
