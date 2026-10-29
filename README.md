@@ -42,13 +42,34 @@ PDF стал компактнее: без «Плана на кухне», «Ва
 - продажа, реклама, общепит, кейтеринг, платное обучение и бизнес-использование запрещены;
 - **просмотр или любое использование сайта означает согласие с условиями**.
 
-Полный текст: [LICENSE.md](LICENSE.md). Условия и конфиденциальность на сайте: [legal.html](legal.html).
+Полный текст: [LICENSE.md](LICENSE.md). Условия и конфиденциальность на сайте: [legal.html](legal.html), [legal-en.html](legal-en.html).
+
+## Версионирование
+
+Текущая версия: **v2.1.1**. Номер версии отображается в футере и открывает страницу [changelog.html](changelog.html). Предыдущие версии — в [history.html](history.html).
+
+Схема: **major.minor.patch**.
+
+- major — крупное изменение масштаба проекта;
+- minor — новые функции или большой блок контента;
+- patch — исправления и мелкие правки.
+
+Каждое будущее изменение с новым функционалом, контентом или исправлением должно обновлять `version.js`, номер в футере, `changelog.html`, `changelog-en.html`, `history.html`, `history-en.html` и коммититься вместе с изменением. Полные правила — в [VERSIONING.md](VERSIONING.md).
 
 ## Структура
 
 ```text
 index.html          — приложение
-legal.html          — Privacy & Policy
+legal.html          — Privacy & Policy (RU)
+legal-en.html       — Privacy & Policy (EN)
+changelog.html      — что нового (RU)
+changelog-en.html   — what’s new (EN)
+history.html        — история версий (RU)
+history-en.html     — version history (EN)
+history-full.pdf    — полная история (RU)
+history-full-en.pdf — full history (EN)
+version.js          — текущая версия
+history.js          — логика полной PDF-истории
 styles.css          — оформление
 app.js              — логика выбора блюд и отметок
 data.js             — данные рецептов
@@ -57,6 +78,7 @@ assets/             — фотографии блюд
 pdfs/               — PDF-гиды
 src/                — исходники контента и сборки PDF
 LICENSE.md          — лицензия
+VERSIONING.md       — правила версионирования
 Открыть приложение.bat
 ```
 

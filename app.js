@@ -3,7 +3,7 @@
 
   const RECIPES = window.RECIPES || [];
   const INGREDIENTS = window.INGREDIENTS || {};
-  const APP_VERSION = window.APP_VERSION || "2.1.0";
+  const APP_VERSION = window.APP_VERSION || "2.1.1";
   const COUNTRIES = [
     { id: "all", name: "Все страны" },
     { id: "eg", name: "Египет" },
@@ -12,6 +12,18 @@
     { id: "tr", name: "Турция" },
     { id: "ps", name: "Палестина" },
   ];
+  const COUNTRY_FLAGS = {
+    all: '<svg viewBox="0 0 60 40" aria-hidden="true"><rect width="60" height="40" fill="#F4EBDD"/><circle cx="30" cy="20" r="13" fill="#DCE9E0" stroke="#2E6B4E" stroke-width="2"/><path d="M17 20h26M30 7c-5 4-7 9-7 13s2 9 7 13M30 7c5 4 7 9 7 13s-2 9-7 13" fill="none" stroke="#2E6B4E" stroke-width="1.6"/></svg>',
+    eg: '<svg viewBox="0 0 60 40" aria-hidden="true"><rect width="60" height="13.3" fill="#CE1126"/><rect y="13.3" width="60" height="13.3" fill="#F8F3E8"/><rect y="26.6" width="60" height="13.4" fill="#211B16"/><path d="M30 15l2 4 4 .6-3 3 .7 4-3.7-2-3.7 2 .7-4-3-3 4-.6z" fill="#C89A46"/></svg>',
+    lb: '<svg viewBox="0 0 60 40" aria-hidden="true"><rect width="60" height="10" fill="#CE1126"/><rect y="10" width="60" height="20" fill="#F8F3E8"/><rect y="30" width="60" height="10" fill="#CE1126"/><path d="M30 8l3 6h-2l4 5h-3l4 6H24l4-6h-3l4-5h-2z" fill="#0B6B3A"/><rect x="29" y="24" width="2" height="7" fill="#5B3A1E"/></svg>',
+    sy: '<svg viewBox="0 0 60 40" aria-hidden="true"><rect width="60" height="13.3" fill="#0B6B3A"/><rect y="13.3" width="60" height="13.3" fill="#F8F3E8"/><rect y="26.6" width="60" height="13.4" fill="#211B16"/><path d="M22 18l1.2 3.2 3.4.2-2.6 2.1.8 3.3-2.8-1.7-2.8 1.7.8-3.3-2.6-2.1 3.4-.2zM30 18l1.2 3.2 3.4.2-2.6 2.1.8 3.3-2.8-1.7-2.8 1.7.8-3.3-2.6-2.1 3.4-.2zM38 18l1.2 3.2 3.4.2-2.6 2.1.8 3.3-2.8-1.7-2.8 1.7.8-3.3-2.6-2.1 3.4-.2z" fill="#CE1126"/></svg>',
+    tr: '<svg viewBox="0 0 60 40" aria-hidden="true"><rect width="60" height="40" fill="#E30A17"/><circle cx="25" cy="20" r="9" fill="#F8F3E8"/><circle cx="29" cy="20" r="7.2" fill="#E30A17"/><path d="M39 14.5l1.8 4.7 4.7.2-3.8 2.9 1.2 4.6-3.9-2.6-3.9 2.6 1.2-4.6-3.8-2.9 4.7-.2z" fill="#F8F3E8"/></svg>',
+    ps: '<svg viewBox="0 0 60 40" aria-hidden="true"><rect width="60" height="13.3" fill="#211B16"/><rect y="13.3" width="60" height="13.3" fill="#F8F3E8"/><rect y="26.6" width="60" height="13.4" fill="#2E6B4E"/><path d="M0 0l23 20L0 40z" fill="#CE1126"/></svg>',
+  };
+
+  function countryFlagMarkup(id) {
+    return COUNTRY_FLAGS[id] || COUNTRY_FLAGS.all;
+  }
   const STORAGE_KEY = "egypt-recipes-v1";
   let selectedCountry = "all";
   const CHECK_SVG =
@@ -199,6 +211,7 @@
       const count = countryCount(country.id);
       return `
         <button class="country-card${active ? " is-active" : ""}" type="button" data-country="${country.id}" aria-pressed="${active}">
+          <span class="country-flag" aria-hidden="true">${countryFlagMarkup(country.id)}</span>
           <span class="country-name">${esc(country.name)}</span>
           <span class="country-meta">${count} ${plural(count, ["блюдо", "блюда", "блюд"])}</span>
           <span class="country-mark">${active ? "Выбрано" : ""}</span>
