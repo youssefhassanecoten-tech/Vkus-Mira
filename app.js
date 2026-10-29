@@ -2,21 +2,28 @@
   "use strict";
 
   const RECIPES = window.RECIPES || [];
+  const INGREDIENTS = window.INGREDIENTS || {};
+  const APP_VERSION = window.APP_VERSION || "2.1.0";
   const COUNTRIES = [
-    { id: "all", name: "Все страны", flag: ["#B44E2F", "#C89A46", "#211B16"] },
-    { id: "eg", name: "Египет", flag: ["#C9442B", "#F8F3E8", "#211B16"] },
-    { id: "lb", name: "Ливан", flag: ["#C9442B", "#F8F3E8", "#C9442B"] },
-    { id: "sy", name: "Сирия", flag: ["#C9442B", "#F8F3E8", "#211B16"] },
-    { id: "tr", name: "Турция", flag: ["#E30A17", "#F8F3E8", "#E30A17"] },
-    { id: "ps", name: "Палестина", flag: ["#000000", "#F8F3E8", "#2E6B4E"] },
+    { id: "all", name: "Все страны" },
+    { id: "eg", name: "Египет" },
+    { id: "lb", name: "Ливан" },
+    { id: "sy", name: "Сирия" },
+    { id: "tr", name: "Турция" },
+    { id: "ps", name: "Палестина" },
   ];
   const STORAGE_KEY = "egypt-recipes-v1";
   let selectedCountry = "all";
   const CHECK_SVG =
     '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4.2 10.5l3.4 3.4L15.9 5.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const ALT_SVG =
+    '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 7h11l-3-3M17 17H6l3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   const main = document.getElementById("main");
   const toast = document.getElementById("toast");
+  const ingredientModal = document.getElementById("ingredient-modal");
+  const ingredientModalContent = document.getElementById("ingredient-modal-content");
+  document.querySelectorAll("[data-app-version]").forEach((node) => { node.textContent = `v${APP_VERSION}`; });
 
   let memoryStore = {};
   let appState = readState();
@@ -102,6 +109,67 @@
     return (match ? match[0] : String(text)).trim();
   }
 
+  function normalizeIngredientName(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[«».,()]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function ingredientInfoFor(name) {
+    const normalized = normalizeIngredientName(name);
+    if (INGREDIENTS[normalized]) return { key: normalized, info: INGREDIENTS[normalized] };
+    const key = Object.keys(INGREDIENTS)
+      .sort((a, b) => b.length - a.length)
+      .find((candidate) => normalized.includes(candidate));
+    return key ? { key, info: INGREDIENTS[key] } : null;
+  }
+
+  function getReplacement(recipeId, index) {
+    return appState[recipeId]?.replacements?.[index] || null;
+  }
+
+  function setReplacement(recipeId, index, replacement) {
+    if (!appState[recipeId]) appState[recipeId] = {};
+    if (!appState[recipeId].replacements) appState[recipeId].replacements = {};
+    if (replacement) appState[recipeId].replacements[index] = replacement;
+    else delete appState[recipeId].replacements[index];
+    writeState();
+  }
+
+  function openIngredientModal(key) {
+    const info = INGREDIENTS[key];
+    if (!info || !ingredientModal || !ingredientModalContent) return;
+    const alternatives = (info.alternatives || [])
+      .map(
+        (alternative) => `
+          <div class="modal-alt-item">
+            <strong>${esc(alternative.name)}</strong>
+            <span>${Number(alternative.similarity)}%</span>
+          </div>`
+      )
+      .join("");
+    ingredientModalContent.innerHTML = `
+      <span class="ingredient-modal-kicker">Ингредиент</span>
+      <h2 id="ingredient-modal-title">${esc(info.title)}</h2>
+      <p>${esc(info.what)}</p>
+      <h3>Как подготовить</h3>
+      <ul>${(info.howTo || []).map((line) => `<li>${esc(line)}</li>`).join("")}</ul>
+      <h3>Чем заменить</h3>
+      <div class="modal-alt-list">${alternatives}</div>
+    `;
+    ingredientModal.hidden = false;
+    document.body.classList.add("modal-open");
+    ingredientModal.querySelector(".ingredient-modal-close")?.focus();
+  }
+
+  function closeIngredientModal() {
+    if (!ingredientModal) return;
+    ingredientModal.hidden = true;
+    document.body.classList.remove("modal-open");
+  }
+
   function dishCardsMarkup(recipes) {
     return recipes
       .map(
@@ -131,7 +199,6 @@
       const count = countryCount(country.id);
       return `
         <button class="country-card${active ? " is-active" : ""}" type="button" data-country="${country.id}" aria-pressed="${active}">
-          <span class="country-flag" aria-hidden="true">${country.flag.map((color) => `<i style="background:${color}"></i>`).join("")}</span>
           <span class="country-name">${esc(country.name)}</span>
           <span class="country-meta">${count} ${plural(count, ["блюдо", "блюда", "блюд"])}</span>
           <span class="country-mark">${active ? "Выбрано" : ""}</span>
@@ -277,7 +344,77 @@
     ];
   }
 
+  function alternativeMenuMarkup(item, infoEntry, replacement) {
+    const alternatives = infoEntry.info.alternatives || [];
+    if (!alternatives.length) return "";
+    return `
+      <div class="alt-menu" data-alt-menu hidden>
+        <span class="alt-menu-title">Заменить «${esc(item.title)}»</span>
+        ${alternatives
+          .map(
+            (alternative, index) => `
+              <button class="alt-option" type="button" data-alt-index="${index}">
+                <span class="alt-name">${esc(alternative.name)}</span>
+                <span class="alt-score">${Number(alternative.similarity)}%</span>
+                <span class="alt-note">${esc(alternative.note || "")}</span>
+              </button>`
+          )
+          .join("")}
+        ${replacement ? '<button class="alt-reset" type="button" data-alt-reset>Вернуть оригинал</button>' : ""}
+      </div>
+    `;
+  }
+
+  function ingredientItemMarkup(recipe, item) {
+    const done = isDone(recipe.id, "ingredients", item.index);
+    const status = done ? item.doneLabel : "Отметить";
+    const infoEntry = ingredientInfoFor(item.title);
+    const replacement = getReplacement(recipe.id, item.index);
+    const title = replacement ? replacement.name : item.title;
+    const amount = replacement ? replacement.amount : item.amount;
+    const note = replacement
+      ? `Заменяет: ${item.title}.${replacement.note ? " " + replacement.note : ""}`
+      : item.note;
+    const titleMarkup =
+      infoEntry && !replacement
+        ? `<span class="item-info-link" data-info-link data-info-key="${esc(infoEntry.key)}" role="button" tabindex="0">${esc(title)}</span>`
+        : esc(title);
+    const amountMarkup = amount ? `<span class="item-amount">${esc(amount)}</span>` : "";
+    const noteMarkup = note ? `<span class="item-note">${esc(note)}</span>` : "";
+    const altButton =
+      infoEntry && infoEntry.info.alternatives?.length
+        ? `<button class="alt-toggle" type="button" data-alt-toggle aria-label="Показать альтернативы" aria-expanded="false">${ALT_SVG}</button>`
+        : "";
+
+    return `
+      <div
+        class="item${done ? " is-done" : ""}"
+        data-toggle-item
+        data-section="ingredients"
+        data-index="${item.index}"
+        data-done-label="${esc(item.doneLabel)}"
+        ${infoEntry ? `data-info-key="${esc(infoEntry.key)}"` : ""}
+        role="button"
+        tabindex="0"
+        aria-pressed="${done}"
+      >
+        <span class="item-check" aria-hidden="true">${CHECK_SVG}</span>
+        <span class="item-content">
+          <span class="item-title">${titleMarkup}${amountMarkup}</span>
+          ${noteMarkup}
+        </span>
+        <span class="item-tools">
+          <span class="item-status">${esc(status)}</span>
+          ${altButton}
+        </span>
+        ${infoEntry ? alternativeMenuMarkup(item, infoEntry, replacement) : ""}
+      </div>
+    `;
+  }
+
   function itemMarkup(recipe, section, item) {
+    if (section.key === "ingredients") return ingredientItemMarkup(recipe, item);
+
     const done = isDone(recipe.id, section.key, item.index);
     const status = done ? item.doneLabel : "Отметить";
     const percent = item.percent ? `<span class="item-percent">${esc(item.percent)}</span>` : "";
@@ -299,9 +436,36 @@
           <span class="item-title">${percent}${esc(item.title)}${amount}</span>
           ${note}
         </span>
-        <span class="item-status">${esc(status)}</span>
+        <span class="item-tools">
+          <span class="item-status">${esc(status)}</span>
+        </span>
       </button>
     `;
+  }
+
+  function refreshIngredientItem(recipe, index) {
+    const node = document.querySelector(`[data-toggle-item][data-section="ingredients"][data-index="${index}"]`);
+    const ingredient = recipe.ingredients[index];
+    if (!node || !ingredient) return;
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = ingredientItemMarkup(recipe, {
+      index,
+      title: ingredient.name,
+      amount: ingredient.amount,
+      note: ingredient.note,
+      doneLabel: "Куплено",
+    });
+    node.replaceWith(wrapper.firstElementChild);
+  }
+
+  function closeAltMenus(except = null) {
+    document.querySelectorAll("[data-alt-menu]").forEach((menu) => {
+      if (menu !== except) {
+        menu.hidden = true;
+        const toggle = menu.closest("[data-toggle-item]")?.querySelector("[data-alt-toggle]");
+        if (toggle) toggle.setAttribute("aria-expanded", "false");
+      }
+    });
   }
 
   function accordionMarkup(recipe, section, position) {
@@ -487,6 +651,61 @@
   }
 
   document.addEventListener("click", (event) => {
+    const closeModal = event.target.closest("[data-close-ingredient]");
+    if (closeModal) {
+      closeIngredientModal();
+      return;
+    }
+
+    const infoLink = event.target.closest("[data-info-link]");
+    if (infoLink) {
+      event.preventDefault();
+      closeAltMenus();
+      openIngredientModal(infoLink.dataset.infoKey);
+      return;
+    }
+
+    const altToggle = event.target.closest("[data-alt-toggle]");
+    if (altToggle) {
+      event.preventDefault();
+      const item = altToggle.closest("[data-toggle-item]");
+      const menu = item?.querySelector("[data-alt-menu]");
+      if (menu) {
+        const open = menu.hidden;
+        closeAltMenus(menu);
+        menu.hidden = !open;
+        altToggle.setAttribute("aria-expanded", String(open));
+      }
+      return;
+    }
+
+    const altOption = event.target.closest("[data-alt-index]");
+    if (altOption) {
+      event.preventDefault();
+      const item = altOption.closest("[data-toggle-item]");
+      const recipe = getRecipe(getRecipeIdFromHash());
+      if (!item || !recipe) return;
+      const info = INGREDIENTS[item.dataset.infoKey];
+      const alternative = info?.alternatives?.[Number(altOption.dataset.altIndex)];
+      if (!alternative) return;
+      setReplacement(recipe.id, Number(item.dataset.index), alternative);
+      refreshIngredientItem(recipe, Number(item.dataset.index));
+      showToast(`Заменено: ${alternative.name}`);
+      return;
+    }
+
+    const altReset = event.target.closest("[data-alt-reset]");
+    if (altReset) {
+      event.preventDefault();
+      const item = altReset.closest("[data-toggle-item]");
+      const recipe = getRecipe(getRecipeIdFromHash());
+      if (!item || !recipe) return;
+      setReplacement(recipe.id, Number(item.dataset.index), null);
+      refreshIngredientItem(recipe, Number(item.dataset.index));
+      showToast("Возвращён исходный ингредиент.");
+      return;
+    }
+
     const trigger = event.target.closest("[data-accordion-trigger]");
     if (trigger) {
       event.preventDefault();
@@ -542,6 +761,30 @@
       event.preventDefault();
       const accordions = document.querySelector(".accordions");
       if (accordions) accordions.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    closeAltMenus();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeIngredientModal();
+      closeAltMenus();
+      return;
+    }
+
+    const infoLink = event.target.closest("[data-info-link]");
+    if (infoLink && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      openIngredientModal(infoLink.dataset.infoKey);
+      return;
+    }
+
+    const item = event.target.closest("[data-toggle-item]");
+    if (item && (event.key === "Enter" || event.key === " ") && !event.target.closest("button, [data-info-link]")) {
+      event.preventDefault();
+      item.click();
     }
   });
 

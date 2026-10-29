@@ -28,17 +28,28 @@
     <div class="footer-inner">
       <p>50 блюд Ближнего Востока, которые реально приготовить дома. С покупками в Петербурге и без лишней воды.</p>
       <p class="footer-meta">Фото — Викисклад, лицензии указаны в карточках. Приложение работает офлайн.</p>
-      <p class="footer-legal"><a href="legal.html">Privacy &amp; Policy</a> · Просмотр сайта означает согласие с условиями.</p>
+      <p class="footer-legal"><a href="legal.html">Политика конфиденциальности и условия использования</a> · Просмотр сайта означает согласие с условиями.</p>
+      <p class="footer-version">© 2026 · <a class="version-link" href="changelog.html" data-app-version>v2.1.0</a></p>
     </div>
   </footer>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div id="ingredient-modal" class="ingredient-modal" hidden>
+    <div class="ingredient-modal-backdrop" data-close-ingredient></div>
+    <section class="ingredient-modal-panel" role="dialog" aria-modal="true" aria-labelledby="ingredient-modal-title">
+      <button class="ingredient-modal-close" type="button" data-close-ingredient aria-label="Закрыть">×</button>
+      <div id="ingredient-modal-content"></div>
+    </section>
+  </div>
 
   <noscript>
     <div style="padding:24px;text-align:center">Для работы приложения нужен JavaScript.</div>
   </noscript>
 
   <script src="data.js"></script>
+  <script src="ingredients.js"></script>
+  <script src="version.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
