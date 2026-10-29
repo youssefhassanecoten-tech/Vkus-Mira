@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import re
 import sys
 from pathlib import Path
 from xml.sax.saxutils import escape
@@ -250,6 +251,11 @@ def para(text, style="body", bullet=None):
     return Paragraph(escape(str(text)), STYLES[style], bulletText=bullet)
 
 
+def shorten(text, sentences=2):
+    parts = re.split(r"(?<=[.!?])\s+", str(text).strip())
+    return " ".join(parts[:sentences]).strip()
+
+
 def section_title(text, accent, kicker=None):
     out = [Spacer(1, 3.6 * mm)]
     if kicker:
@@ -387,6 +393,31 @@ def timeline_table(recipe, content_width):
     return table
 
 
+def prep_table(recipe, content_width):
+    rows = []
+    for i in range(0, len(recipe["prep"]), 2):
+        row = []
+        for item in recipe["prep"][i : i + 2]:
+            text = f"<b>{escape(item['title'])}.</b> {escape(item['text'])}"
+            row.append(Paragraph(text, STYLES["bullet_small"]))
+        if len(row) == 1:
+            row.append("")
+        rows.append(row)
+    table = Table(rows, colWidths=[content_width / 2.0] * 2, hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+    return table
+
+
 def troubleshooting_table(recipe, content_width):
     rows = [[Paragraph("ЧТО ПОШЛО НЕ ТАК", STYLES["table_head"]), Paragraph("КАК ИСПРАВИТЬ", STYLES["table_head"])]]
     for item in recipe["troubleshooting"]:
@@ -515,10 +546,10 @@ def draw_cover(c, doc):
     # Top labels.
     c.setFillColor(accent_dark)
     c.setFont("Arial-Bold", 8.5)
-    c.drawString(margin, h - 23 * mm, "ЕГИПЕТСКАЯ КУХНЯ")
+    c.drawString(margin, h - 23 * mm, "БЛИЖНИЙ ВОСТОК")
     c.setFillColor(MUTED)
     c.setFont("Arial", 7.5)
-    c.drawString(margin, h - 29 * mm, "САНКТ-ПЕТЕРБУРГ • 2026")
+    c.drawString(margin, h - 29 * mm, f"{recipe.get('country_name', 'Египет').upper()} • САНКТ-ПЕТЕРБУРГ • 2026")
 
     # Huge number.
     c.setFillColor(accent_light)
@@ -588,7 +619,7 @@ def draw_cover(c, doc):
     c.setFillColor(MUTED)
     c.setFont("Arial", 7.3)
     c.drawString(margin, 10 * mm, "Санкт-Петербург • 2026")
-    c.drawRightString(w - margin, 10 * mm, "Египетская кухня • 10 рецептов")
+    c.drawRightString(w - margin, 10 * mm, f"Ближний Восток • {len(RECIPES)} рецептов")
     c.restoreState()
 
 
@@ -611,7 +642,7 @@ def draw_content_page(c, doc):
     c.drawString(margin + 4 * mm, h - 16.8 * mm, recipe["title"].upper())
     c.setFillColor(SOFT)
     c.setFont("Arial", 7)
-    c.drawRightString(w - margin, h - 16.8 * mm, "ЕГИПЕТСКАЯ КУХНЯ • 0–100")
+    c.drawRightString(w - margin, h - 16.8 * mm, "БЛИЖНИЙ ВОСТОК • 0–100")
     c.setStrokeColor(LINE)
     c.setLineWidth(0.45)
     c.line(margin, h - 19.5 * mm, w - margin, h - 19.5 * mm)
@@ -645,8 +676,8 @@ def build_recipe(recipe):
         topMargin=top,
         bottomMargin=bottom,
         title=f"{recipe['title']} — полный гид 0–100",
-        author="Вкус Египта • Санкт-Петербург",
-        subject="Египетская кухня: покупки, подготовка и пошаговый рецепт",
+        author="Вкус Ближнего Востока • Санкт-Петербург",
+        subject="Ближний Восток: покупки, подготовка и пошаговый рецепт",
     )
     doc.recipe = recipe
 
@@ -667,120 +698,55 @@ def build_recipe(recipe):
 
     story = [NextPageTemplate("content"), PageBreak()]
 
-    # Page 2: intro.
+    # Page 2: short intro, meta and ingredients.
     story.append(Paragraph("ПОЛНЫЙ ГИД 0–100", STYLES["kicker"]))
     story.append(Paragraph(escape(recipe["title"]), STYLES["h1"]))
     story.append(Paragraph(escape(recipe["subtitle"]), STYLES["subtitle"]))
-    story.append(Paragraph(escape(recipe["description"]), STYLES["lead"]))
+    story.append(Paragraph(escape(shorten(recipe["description"], 2)), STYLES["lead"]))
     story.append(Spacer(1, 2 * mm))
     story.append(meta_table(recipe, accent, content_width))
-    story.append(Spacer(1, 4 * mm))
-    story += section_title("Почему стоит приготовить", accent)
-    for item in recipe["why"]:
-        story.append(para(item, "bullet", "•"))
-    story.append(CondPageBreak(100 * mm))
-
-    # Ingredients.
-    story += section_title("Что купить", accent, "Список на 4 порции")
-    story.append(Paragraph(
-        "Количество рассчитано на четыре хорошие порции. Если готовите на двоих, просто уменьшите всё вдвое; "
-        "специи добавляйте постепенно и пробуйте по ходу.",
-        STYLES["small"],
-    ))
     story.append(Spacer(1, 2 * mm))
+    story += section_title("Что купить", accent, recipe["meta"]["portions"])
     story.append(ingredient_table(recipe, content_width))
+    story.append(Spacer(1, 4 * mm))
+    story += section_title("Подготовка", accent, "Что сделать заранее")
+    story.append(prep_table(recipe, content_width))
     story.append(PageBreak())
 
-    # Shopping.
+    # Page 3: shopping, then steps.
     story += section_title("Где купить в Санкт-Петербурге", accent, "Практичный маршрут")
     story.append(shopping_table(recipe, content_width))
-    story.append(Spacer(1, 2.5 * mm))
+    story.append(Spacer(1, 2 * mm))
     story.append(Paragraph(
-        "Ассортимент и режим работы могут меняться. Перед поездкой на рынок лучше позвонить или проверить "
-        "актуальную информацию; в восточных лавках у Апраксина двора и на Сенной всегда стоит спрашивать запас на складе.",
+        "Ассортимент и режим работы могут меняться. В восточных лавках у Апраксина двора и на Сенной "
+        "стоит спрашивать запас на складе: на витрине есть не всё.",
         STYLES["tiny"],
     ))
+    story.append(CondPageBreak(80 * mm))
 
-    # Equipment and timeline.
-    story += section_title("Что понадобится", accent, "Посуда и мелочи")
-    eq = recipe["equipment"]
-    rows = []
-    for i in range(0, len(eq), 2):
-        row = []
-        for item in eq[i : i + 2]:
-            row.append(Paragraph(escape(item), STYLES["bullet_small"], bulletText="•"))
-        if len(row) == 1:
-            row.append("")
-        rows.append(row)
-    eq_table = Table(rows, colWidths=[content_width / 2] * 2, hAlign="LEFT")
-    eq_table.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-    ]))
-    story.append(eq_table)
-    story.append(Spacer(1, 4 * mm))
-    story += section_title("План на кухне", accent, "Чтобы не суетиться")
-    story.append(timeline_table(recipe, content_width))
-    story.append(Spacer(1, 4 * mm))
-    story.append(callout("Совет на старт", recipe["chef_note"], recipe, content_width))
-    story.append(CondPageBreak(90 * mm))
-
-    # Stages.
+    # Steps 0–100.
     story += section_title("Пошаговый гид 0–100", accent, "От пустой кастрюли до полной тарелки")
     story.append(Paragraph(
-        "Ниже — одиннадцать остановок. Проценты не для красоты: они показывают, где вы находитесь и что важно "
-        "не пропустить. Делайте по порядку, пробуйте и не бойтесь регулировать соль и кислоту под свой вкус.",
+        "Одиннадцать остановок без воды: что делать, на что смотреть и когда пробовать. "
+        "Проценты показывают, где вы находитесь.",
         STYLES["body"],
     ))
     story.append(Spacer(1, 1 * mm))
     for stage in recipe["stages"]:
         story.append(stage_card(stage, recipe, content_width))
 
-    # Serving, storage, troubleshooting, variations.
-    story.append(CondPageBreak(85 * mm))
+    # Serving, storage and fixes.
+    story.append(CondPageBreak(90 * mm))
     story += section_title("Подача", accent)
     for item in recipe["serving"]:
         story.append(para(item, "bullet", "•"))
-    story.append(Spacer(1, 3 * mm))
+    story.append(Spacer(1, 2.5 * mm))
     story += section_title("Хранение и разогрев", accent)
     for item in recipe["storage"]:
         story.append(para(item, "bullet", "•"))
-    story.append(Spacer(1, 3 * mm))
-    story.append(CondPageBreak(85 * mm))
+    story.append(Spacer(1, 2.5 * mm))
     story += section_title("Если что-то пошло не так", accent, "Спокойно, это чинится")
     story.append(troubleshooting_table(recipe, content_width))
-    story.append(Spacer(1, 4 * mm))
-    story.append(CondPageBreak(80 * mm))
-    story += section_title("Вариации", accent, "Когда захочется экспериментов")
-    for item in recipe["variations"]:
-        story.append(para(item, "bullet", "•"))
-    story.append(Spacer(1, 4 * mm))
-    story.append(callout("Совет от шефа", recipe["chef_note"], recipe, content_width))
-
-    # Quick card.
-    story.append(Spacer(1, 8 * mm))
-    story.append(HRFlowable(width="100%", thickness=0.8, color=HexColor(accent), spaceBefore=0, spaceAfter=8 * mm))
-    story.append(CondPageBreak(120 * mm))
-    story.append(Paragraph("КАРТОЧКА НА КУХНЮ", STYLES["kicker"]))
-    story.append(Paragraph(escape(recipe["title"]), STYLES["h1"]))
-    story.append(Paragraph(escape(recipe["subtitle"]), STYLES["subtitle"]))
-    story.append(meta_table(recipe, accent, content_width))
-    story.append(Spacer(1, 5 * mm))
-    story += section_title("Запомнить главное", accent)
-    quick_items = [
-        recipe["chef_note"],
-        recipe["serving"][0],
-        recipe["storage"][0],
-        recipe["troubleshooting"][0]["solution"],
-    ]
-    for item in quick_items:
-        story.append(para(item, "quick", "•"))
-    story.append(Spacer(1, 5 * mm))
-    story += section_title("Тайминг", accent)
-    story.append(timeline_table(recipe, content_width))
 
     doc.build(story)
     return out_path

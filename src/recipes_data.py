@@ -1177,3 +1177,14 @@ RECIPES = [
         "chef_note": "Фарш для кофты должен быть жирным: 20% жира — не ошибка, а необходимость. И не мешайте его слишком долго, иначе получите мясную пасту.",
     },
 ]
+
+for _recipe in RECIPES:
+    _recipe.setdefault("country", "eg")
+    _recipe.setdefault("country_name", "Египет")
+
+from recipes_extra import EXTRA_RECIPES  # noqa: E402
+from recipes_more import MORE_RECIPES  # noqa: E402
+
+RECIPES.extend(EXTRA_RECIPES)
+RECIPES.extend(MORE_RECIPES)
+

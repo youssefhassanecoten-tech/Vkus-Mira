@@ -2,7 +2,16 @@
   "use strict";
 
   const RECIPES = window.RECIPES || [];
+  const COUNTRIES = [
+    { id: "all", name: "Все страны", flag: ["#B44E2F", "#C89A46", "#211B16"] },
+    { id: "eg", name: "Египет", flag: ["#C9442B", "#F8F3E8", "#211B16"] },
+    { id: "lb", name: "Ливан", flag: ["#C9442B", "#F8F3E8", "#C9442B"] },
+    { id: "sy", name: "Сирия", flag: ["#C9442B", "#F8F3E8", "#211B16"] },
+    { id: "tr", name: "Турция", flag: ["#E30A17", "#F8F3E8", "#E30A17"] },
+    { id: "ps", name: "Палестина", flag: ["#000000", "#F8F3E8", "#2E6B4E"] },
+  ];
   const STORAGE_KEY = "egypt-recipes-v1";
+  let selectedCountry = "all";
   const CHECK_SVG =
     '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4.2 10.5l3.4 3.4L15.9 5.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -65,6 +74,71 @@
     return RECIPES.find((recipe) => recipe.id === id);
   }
 
+  function plural(number, forms) {
+    const value = Math.abs(number) % 100;
+    const last = value % 10;
+    if (value > 10 && value < 20) return forms[2];
+    if (last > 1 && last < 5) return forms[1];
+    if (last === 1) return forms[0];
+    return forms[2];
+  }
+
+  function countryCount(id) {
+    return id === "all" ? RECIPES.length : RECIPES.filter((recipe) => recipe.country === id).length;
+  }
+
+  function countryName(id) {
+    return COUNTRIES.find((country) => country.id === id)?.name || "Все кухни";
+  }
+
+  function filteredRecipes() {
+    return selectedCountry === "all"
+      ? RECIPES
+      : RECIPES.filter((recipe) => recipe.country === selectedCountry);
+  }
+
+  function firstSentence(text) {
+    const match = String(text).match(/^.*?[.!?](?=\s+[А-ЯЁA-Z«"(]|\s*$)/);
+    return (match ? match[0] : String(text)).trim();
+  }
+
+  function dishCardsMarkup(recipes) {
+    return recipes
+      .map(
+        (recipe) => `
+          <a class="dish-card" href="#/recipe/${esc(recipe.id)}" style="--card-accent:${recipe.accent}">
+            <div class="dish-media">
+              <img src="${esc(recipe.photo)}" alt="${esc(recipe.title)}" loading="lazy">
+              <span class="dish-index">${esc(recipe.num)}</span>
+            </div>
+            <div class="dish-body">
+              <span class="dish-kicker">${esc(recipe.country_name)} • ${esc(recipe.meta.cook)}</span>
+              <h3>${esc(recipe.title)}</h3>
+              <p>${esc(recipe.tagline)}</p>
+              <div class="dish-footer">
+                <span>${esc(recipe.meta.portions)}</span>
+                <span>PDF-гид</span>
+              </div>
+            </div>
+          </a>`
+      )
+      .join("");
+  }
+
+  function countryCardsMarkup() {
+    return COUNTRIES.map((country) => {
+      const active = country.id === selectedCountry;
+      const count = countryCount(country.id);
+      return `
+        <button class="country-card${active ? " is-active" : ""}" type="button" data-country="${country.id}" aria-pressed="${active}">
+          <span class="country-flag" aria-hidden="true">${country.flag.map((color) => `<i style="background:${color}"></i>`).join("")}</span>
+          <span class="country-name">${esc(country.name)}</span>
+          <span class="country-meta">${count} ${plural(count, ["блюдо", "блюда", "блюд"])}</span>
+          <span class="country-mark">${active ? "Выбрано" : ""}</span>
+        </button>`;
+    }).join("");
+  }
+
   function showToast(message) {
     if (!toast) return;
     toast.textContent = message;
@@ -76,35 +150,20 @@
   }
 
   function renderHome() {
-    document.title = "Вкус Египта — рецепты для Санкт-Петербурга";
+    document.title = "Вкус Ближнего Востока — рецепты для Санкт-Петербурга";
 
-    const cards = RECIPES.map(
-      (recipe) => `
-        <a class="dish-card" href="#/recipe/${esc(recipe.id)}" style="--card-accent:${recipe.accent}">
-          <div class="dish-media">
-            <img src="${esc(recipe.photo)}" alt="${esc(recipe.title)}" loading="lazy">
-            <span class="dish-index">${esc(recipe.num)}</span>
-          </div>
-          <div class="dish-body">
-            <span class="dish-kicker">${esc(recipe.meta.cook)} • ${esc(recipe.meta.difficulty)}</span>
-            <h3>${esc(recipe.title)}</h3>
-            <p>${esc(recipe.tagline)}</p>
-            <div class="dish-footer">
-              <span>${esc(recipe.meta.portions)}</span>
-              <span>PDF-гид</span>
-            </div>
-          </div>
-        </a>`
-    ).join("");
+    const visibleRecipes = filteredRecipes();
+    const cards = dishCardsMarkup(visibleRecipes);
+    const cuisines = new Set(RECIPES.map((recipe) => recipe.country)).size;
 
     main.innerHTML = `
       <section class="hero">
         <div>
-          <span class="eyebrow">Египетская кухня • Санкт-Петербург</span>
-          <h1>Вкус <em>Египта</em><br>без лишней суеты.</h1>
+          <span class="eyebrow">Ближний Восток • Санкт-Петербург</span>
+          <h1>Вкус<br><em>Ближнего Востока</em><br>без лишней суеты.</h1>
           <p class="hero-lede">
-            Десять блюд, которые реально приготовить дома: от кошари и хаваши до махши и кофты.
-            Выбирайте блюдо, отмечайте покупки и шаги — приложение запомнит, что уже сделано.
+            ${RECIPES.length} блюд из пяти кухонь: от египетского кошари и ливанского хумуса
+            до турецкого менемена и палестинской шакшуки. Выбирайте страну, отмечайте покупки и шаги.
           </p>
           <div class="hero-actions">
             <a class="btn btn-primary" href="#dishes">Выбрать блюдо</a>
@@ -114,13 +173,13 @@
         <aside class="hero-card" aria-label="Коротко о подборке">
           <div>
             <span class="hc-kicker">Сегодня на кухне</span>
-            <div class="hc-title">Египет<br>дома</div>
-            <p class="hc-text">Сытная уличная еда, домашние запеканки и супы, которые пахнут специями.</p>
+            <div class="hc-title">Ближний<br>Восток</div>
+            <p class="hc-text">Уличная еда, домашние запеканки, дипы и супы, которые пахнут специями.</p>
           </div>
           <div class="hc-stats">
             <div><strong>${RECIPES.length}</strong><span>блюд</span></div>
+            <div><strong>${cuisines}</strong><span>кухонь</span></div>
             <div><strong>3</strong><span>вкладки</span></div>
-            <div><strong>0</strong><span>сложностей</span></div>
           </div>
         </aside>
       </section>
@@ -131,41 +190,45 @@
             <span class="eyebrow">Шаг 1</span>
             <h2 id="countries-title">Выберите кухню</h2>
           </div>
-          <p>Пока доступен Египет. Остальные кухни — на подходе, но начинать лучше с проверенной классики.</p>
+          <p>Египет, Ливан, Сирия, Турция и Палестина. Все продукты — из обычных магазинов и восточных лавок Петербурга.</p>
         </div>
-        <div class="country-grid">
-          <button class="country-card is-active" type="button" data-country="eg" aria-pressed="true">
-            <span class="country-flag" aria-hidden="true"><i></i><i></i><i></i></span>
-            <span class="country-name">Египет</span>
-            <span class="country-meta">${RECIPES.length} блюд • доступно</span>
-            <span class="country-mark">Выбрано</span>
-          </button>
-          <button class="country-card is-disabled" type="button" disabled>
-            <span class="country-name">Ливан</span>
-            <span class="country-meta">скоро</span>
-          </button>
-          <button class="country-card is-disabled" type="button" disabled>
-            <span class="country-name">Турция</span>
-            <span class="country-meta">скоро</span>
-          </button>
-          <button class="country-card is-disabled" type="button" disabled>
-            <span class="country-name">Марокко</span>
-            <span class="country-meta">скоро</span>
-          </button>
-        </div>
+        <div class="country-grid" id="country-grid">${countryCardsMarkup()}</div>
       </section>
 
       <section class="section" id="dishes" aria-labelledby="dishes-title">
         <div class="section-head">
           <div>
-            <span class="eyebrow">Шаг 2</span>
+            <span class="eyebrow" id="dish-section-kicker">${esc(countryName(selectedCountry))} • ${visibleRecipes.length} ${plural(visibleRecipes.length, ["блюдо", "блюда", "блюд"])}</span>
             <h2 id="dishes-title">Выберите блюдо</h2>
           </div>
           <p>Нажмите на карточку — откроется описание, ингредиенты, подготовка и готовка.</p>
         </div>
-        <div class="dish-grid">${cards}</div>
+        <div class="dish-grid" id="dish-grid">${cards}</div>
       </section>
     `;
+  }
+
+  function updateCountrySelection(countryId) {
+    if (!COUNTRIES.some((country) => country.id === countryId)) return;
+    selectedCountry = countryId;
+
+    document.querySelectorAll(".country-card[data-country]").forEach((card) => {
+      const active = card.dataset.country === selectedCountry;
+      card.classList.toggle("is-active", active);
+      card.setAttribute("aria-pressed", String(active));
+      const mark = card.querySelector(".country-mark");
+      if (mark) mark.textContent = active ? "Выбрано" : "";
+    });
+
+    const visibleRecipes = filteredRecipes();
+    const grid = document.getElementById("dish-grid");
+    const kicker = document.getElementById("dish-section-kicker");
+    if (grid) grid.innerHTML = dishCardsMarkup(visibleRecipes);
+    if (kicker) {
+      kicker.textContent = `${countryName(selectedCountry)} • ${visibleRecipes.length} ${plural(visibleRecipes.length, ["блюдо", "блюда", "блюд"])}`;
+    }
+    const dishes = document.getElementById("dishes");
+    if (dishes) dishes.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function sectionData(recipe) {
@@ -199,14 +262,17 @@
         key: "steps",
         kicker: "30–100%",
         title: "Готовим",
-        subtitle: "0–20% — покупки и подготовка. Дальше — огонь, духовка и сборка.",
-        items: recipe.stages.slice(3).map((stage, index) => ({
-          index,
-          percent: stage.percent,
-          title: stage.title,
-          note: stage.text,
-          doneLabel: "Сделано",
-        })),
+        subtitle: "Шесть ключевых остановок. Полный гид из 11 шагов — в PDF.",
+        items: recipe.stages
+          .slice(3)
+          .filter((_, index) => [0, 1, 2, 3, 5, 7].includes(index))
+          .map((stage, index) => ({
+            index,
+            percent: stage.percent,
+            title: stage.title,
+            note: firstSentence(stage.text),
+            doneLabel: "Сделано",
+          })),
       },
     ];
   }
@@ -275,9 +341,8 @@
       return;
     }
 
-    document.title = `${recipe.title} — Вкус Египта`;
+    document.title = `${recipe.title} — Вкус Ближнего Востока`;
     const sections = sectionData(recipe);
-    const cookingSteps = recipe.stages.slice(3);
     const source = recipe.photoSource
       ? `<a href="${esc(recipe.photoSource)}" target="_blank" rel="noopener">Источник фото</a>`
       : "";
@@ -291,11 +356,12 @@
           <div class="detail-hero-content">
             <div class="detail-kicker">
               <span class="dot" aria-hidden="true"></span>
-              Блюдо ${esc(recipe.num)} • Египет
+              Блюдо ${esc(recipe.num)} • ${esc(recipe.country_name)}
             </div>
             <h1 class="detail-title" id="dish-title">${esc(recipe.title)}</h1>
             <p class="detail-subtitle">${esc(recipe.subtitle)}</p>
             <div class="detail-chips">
+              <span class="chip">${esc(recipe.country_name)}</span>
               <span class="chip">${esc(recipe.meta.portions)}</span>
               <span class="chip">Подготовка: ${esc(recipe.meta.prep)}</span>
               <span class="chip">Готовка: ${esc(recipe.meta.cook)}</span>
@@ -353,7 +419,7 @@
             <div class="side-card pdf-card">
               <div class="side-kicker">PDF-гид</div>
               <h3>Полный гид 0–100</h3>
-              <p>Покупки в Петербурге, подготовка, 11 шагов, подача и разбор ошибок.</p>
+              <p>Покупки в Петербурге, подготовка, 11 шагов, подача и разбор ошибок. Без воды.</p>
               <a class="btn btn-primary btn-block" href="${esc(recipe.pdfPath)}" download>Скачать PDF</a>
             </div>
 
@@ -363,15 +429,6 @@
       </div>
     `;
 
-    refreshProgress(recipe, true);
-
-    const stepsSection = document.querySelector('.accordion[data-section="steps"]');
-    if (stepsSection) {
-      stepsSection.querySelector(".acc-kicker").textContent = "30–100%";
-    }
-    // Keep cooking steps count based on the visible stages.
-    const cookingCount = document.querySelector('.accordion[data-section="steps"] .acc-count');
-    if (cookingCount) cookingCount.textContent = `0/${cookingSteps.length}`;
     refreshProgress(recipe, true);
   }
 
@@ -475,9 +532,8 @@
     }
 
     const country = event.target.closest("[data-country]");
-    if (country && country.dataset.country === "eg") {
-      const dishes = document.getElementById("dishes");
-      if (dishes) dishes.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (country && country.dataset.country) {
+      updateCountrySelection(country.dataset.country);
       return;
     }
 
