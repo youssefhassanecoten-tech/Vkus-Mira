@@ -19,6 +19,14 @@ LINE = colors.HexColor("#E4D5C3")
 
 HISTORY = [
     (
+        "2.1.2",
+        "29.10.2026",
+        {
+            "ru": ["Исправлен пропуск шага жарки в разделе «Готовим».", "Добавлены температура масла и альтернативы приготовления фалафеля."],
+            "en": ["Fixed the missing frying step in the Cooking section.", "Added oil temperature and oven/air-fryer alternatives for falafel."],
+        },
+    ),
+    (
         "2.1.1",
         "29.10.2026",
         {
@@ -65,9 +73,9 @@ def build(lang, out_name):
     ru = lang == "ru"
     title = "Полная история версий" if ru else "Full version history"
     intro = (
-        "Все версии проекта «Вкус Ближнего Востока». Текущая версия — v2.1.1."
+        "Все версии проекта «Вкус Ближнего Востока». Текущая версия — v2.1.2."
         if ru
-        else "All versions of Taste of the Middle East. Current version: v2.1.1."
+        else "All versions of Taste of the Middle East. Current version: v2.1.2."
     )
     doc = SimpleDocTemplate(
         str(ROOT / out_name),
@@ -106,7 +114,7 @@ def build(lang, out_name):
         story.append(HRFlowable(width="100%", thickness=0.5, color=LINE, spaceAfter=8 * mm))
     story.append(
         Paragraph(
-            "© 2026 · Вкус Ближнего Востока · v2.1.1" if ru else "© 2026 · Vkus Blizhnego Vostoka · v2.1.1",
+            "© 2026 · Вкус Ближнего Востока · v2.1.2" if ru else "© 2026 · Vkus Blizhnego Vostoka · v2.1.2",
             styles["footer"],
         )
     )

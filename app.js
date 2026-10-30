@@ -3,7 +3,7 @@
 
   const RECIPES = window.RECIPES || [];
   const INGREDIENTS = window.INGREDIENTS || {};
-  const APP_VERSION = window.APP_VERSION || "2.1.1";
+  const APP_VERSION = window.APP_VERSION || "2.1.2";
   const COUNTRIES = [
     { id: "all", name: "Все страны" },
     { id: "eg", name: "Египет" },
@@ -340,12 +340,11 @@
       },
       {
         key: "steps",
-        kicker: "30–100%",
+        kicker: "30–90%",
         title: "Готовим",
-        subtitle: "Шесть ключевых остановок. Полный гид из 11 шагов — в PDF.",
+        subtitle: "Семь ключевых остановок. Полный гид из 11 шагов — в PDF.",
         items: recipe.stages
-          .slice(3)
-          .filter((_, index) => [0, 1, 2, 3, 5, 7].includes(index))
+          .slice(3, 10)
           .map((stage, index) => ({
             index,
             percent: stage.percent,

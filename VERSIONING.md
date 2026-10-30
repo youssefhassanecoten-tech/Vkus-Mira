@@ -1,6 +1,6 @@
 # Versioning
 
-Current version: **v2.1.1**.
+Current version: **v2.1.2**.
 
 The project uses **major.minor.patch**:
 
@@ -24,6 +24,7 @@ The public history page shows the latest **7 major versions**. The full PDF hist
 
 ## Current history
 
+- **v2.1.2** — fixed the missing frying step in the app; added oil temperature and oven/air-fryer alternatives for falafel.
 - **v2.1.1** — restored country flags, fixed the visual regression from 2.1.0.
 - **v2.1.0** — All countries restored, ingredient cards and alternatives, versioning and bilingual legal pages.
 - **v2.0.0** — 50 Middle Eastern dishes, 5 cuisines, 50 compact PDFs, license and legal page.
